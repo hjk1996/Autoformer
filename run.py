@@ -32,9 +32,9 @@ def main():
     parser.add_argument('--checkpoints', type=str, default='./checkpoints/', help='location of model checkpoints')
 
     # forecasting task
-    parser.add_argument('--seq_len', type=int, default=96, help='input sequence length')
-    parser.add_argument('--label_len', type=int, default=48, help='start token length')
-    parser.add_argument('--pred_len', type=int, default=96, help='prediction sequence length')
+    parser.add_argument('--seq_len', type=int, default=48, help='input sequence length')
+    parser.add_argument('--label_len', type=int, default=24, help='start token length')
+    parser.add_argument('--pred_len', type=int, default=72, help='prediction sequence length')
 
     # model define
     parser.add_argument('--bucket_size', type=int, default=4, help='for Reformer')

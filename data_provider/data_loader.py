@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 import os
+from glob import glob
 import torch
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
@@ -190,9 +191,9 @@ class Dataset_ETT_minute(Dataset):
 
 
 class Dataset_Custom(Dataset):
-    def __init__(self, root_path, flag='train', size=None,
-                 features='S', data_path='ETTh1.csv',
-                 target='OT', scale=True, timeenc=0, freq='h'):
+    def __init__(self, root_path, flag='train', size=(24*2, 0, 24*3),
+                 features='MS', data_path='ETTh1.csv',
+                 target='OT', scale=False, timeenc=0, freq='h'):
         # size [seq_len, label_len, pred_len]
         # info
         if size == None:
@@ -286,7 +287,80 @@ class Dataset_Custom(Dataset):
 
     def inverse_transform(self, data):
         return self.scaler.inverse_transform(data)
+
+
+class CustomPM(Dataset):
+
+    def __init__(self, data_path: str, target: str = "PM2.5", flag: str = "train") -> None:
+        self.seq_len = 24 * 2
+        self.pred_len = 24 * 3
+        self.data_path = data_path
+        self.target = target
+        assert flag in ['train',  'val']
+        type_map = {'train': 0, 'val': 1}
+        self.set_type = type_map[flag]
+        self.xs = []
+        self.ys = []
+        self.stamps = []
+        self.__read_data__()
+
+    def __read_data__(self):
+        df_paths = glob(os.path.join(self.data_path, "*.csv"))
+        dfs = [pd.read_csv(path) for path in df_paths]
+        self.total_len = 0
+
+        for df in dfs:
+            cols = list(df.columns)
+            cols.remove(self.target)
+            cols.remove("date")
+            df = df[["date"] + cols + [self.target]]
+            self.total_len += len(df)
+
+            num_train = int(len(df) * 0.7)
+
+            border1s = [0, num_train - self.seq_len]
+            border2s = [num_train, len(df)]
+            border1 = border1s[self.set_type]
+            border2 = border2s[self.set_type]
+
+            data = df[df.columns[1:]].values
+            
+
+            df_stamp = df[['date']][border1:border2]
+            df_stamp['date'] = pd.to_datetime(df_stamp.date)
+            df_stamp['month'] = df_stamp.date.apply(lambda row: row.month, 1)
+            df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
+            df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday(), 1)
+            df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
+
+            self.xs.append(data[border1:border2])
+            self.ys.append(data[border1:border2])
+            self.stamps.append(df_stamp)
     
+    def __getitem__(self, index):
+
+        list_index = index // len(self.xs[0])
+        index = index % len(self.xs[0])
+        x = self.xs[list_index]
+        y = self.ys[list_index]
+        stamp = self.stamps[list_index]
+
+        s_begin = index
+        s_end = s_begin + self.seq_len
+        r_begin = s_end
+        r_end = r_begin + self.pred_len
+
+        seq_x = x[s_begin:s_end]
+        seq_y = y[r_begin:r_end]
+        seq_x_mark = stamp[s_begin:s_end]
+        seq_y_mark = stamp[r_begin:r_end]
+
+        return seq_x, seq_y, seq_x_mark, seq_y_mark
+    
+    def __len__(self):
+        return (len(self.xs[0]) - self.seq_len - self.pred_len + 1) * len(self.xs)
+
+
 
 class Dataset_Pred(Dataset):
     def __init__(self, root_path, flag='pred', size=None,
