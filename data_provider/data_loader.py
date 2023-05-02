@@ -4,6 +4,7 @@ import pandas as pd
 import os
 from glob import glob
 import torch
+from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 from sklearn.preprocessing import StandardScaler
 from utils.timefeatures import time_features
@@ -293,9 +294,12 @@ class CustomPM(Dataset):
 
     def __init__(self, data_path: str, target: str = "PM2.5", flag: str = "train") -> None:
         self.seq_len = 24 * 2
+        self.label_len = 24 * 1
         self.pred_len = 24 * 3
+
         self.data_path = data_path
         self.target = target
+        self.transform = transforms.Compose([transforms.ToTensor()])
         assert flag in ['train',  'val']
         type_map = {'train': 0, 'val': 1}
         self.set_type = type_map[flag]
@@ -323,8 +327,10 @@ class CustomPM(Dataset):
             border1 = border1s[self.set_type]
             border2 = border2s[self.set_type]
 
-            data = df[df.columns[1:]].values
-            
+            x_data = df[df.columns[1:]].values
+            x_data = np.array(x_data, dtype=np.float32)
+            y_data = df[df.columns[1:]].values
+            y_data = np.array(y_data, dtype=np.float32)
 
             df_stamp = df[['date']][border1:border2]
             df_stamp['date'] = pd.to_datetime(df_stamp.date)
@@ -332,33 +338,44 @@ class CustomPM(Dataset):
             df_stamp['day'] = df_stamp.date.apply(lambda row: row.day, 1)
             df_stamp['weekday'] = df_stamp.date.apply(lambda row: row.weekday(), 1)
             df_stamp['hour'] = df_stamp.date.apply(lambda row: row.hour, 1)
+            
+            data_stamp = df_stamp.drop(['date'], 1).values
 
-            self.xs.append(data[border1:border2])
-            self.ys.append(data[border1:border2])
-            self.stamps.append(df_stamp)
+            self.xs.append(x_data[border1:border2])
+            self.ys.append(y_data[border1:border2])
+            self.stamps.append(data_stamp)
+            self.list_len =  len(self.xs[0]) - self.seq_len - self.pred_len + 1
+
+        
     
     def __getitem__(self, index):
 
-        list_index = index // len(self.xs[0])
-        index = index % len(self.xs[0])
+
+        list_index = index // self.list_len
+        index = index % self.list_len
         x = self.xs[list_index]
         y = self.ys[list_index]
         stamp = self.stamps[list_index]
 
         s_begin = index
         s_end = s_begin + self.seq_len
-        r_begin = s_end
-        r_end = r_begin + self.pred_len
+        r_begin = s_end  - self.label_len
+        r_end = r_begin + self.label_len  + self.pred_len
 
         seq_x = x[s_begin:s_end]
         seq_y = y[r_begin:r_end]
         seq_x_mark = stamp[s_begin:s_end]
         seq_y_mark = stamp[r_begin:r_end]
 
+        # seq_x = self.transform(seq_x)
+        # seq_y = self.transform(seq_y)
+        # seq_x_mark = self.transform(seq_x_mark)
+        # seq_y_mark = self.transform(seq_y_mark)
+
         return seq_x, seq_y, seq_x_mark, seq_y_mark
     
     def __len__(self):
-        return (len(self.xs[0]) - self.seq_len - self.pred_len + 1) * len(self.xs)
+        return (self.list_len - self.seq_len - self.pred_len + 1) * len(self.xs)
 
 
 
@@ -444,6 +461,7 @@ class Dataset_Pred(Dataset):
         else:
             self.data_y = data[border1:border2]
         self.data_stamp = data_stamp
+
 
     def __getitem__(self, index):
         s_begin = index
