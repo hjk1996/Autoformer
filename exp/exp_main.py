@@ -300,13 +300,13 @@ class Exp_Main(Exp_Basic):
                         outputs = self.model(batch_x, batch_x_mark, batch_dec_inp, batch_y_mark)[0]
                     else:
                         outputs = self.model(batch_x, batch_x_mark, batch_dec_inp, batch_y_mark)
-                pred = outputs.detach().cpu().numpy()  # .squeeze()
-                preds.append(pred)
+                pred = outputs.reshape(1, -1).squeeze().detach().cpu().numpy().tolist()
+                preds.extend(pred)
 
         preds = np.array(preds)
-        preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
-        preds = preds[:, :, -1:]
-        preds = preds.reshape(-1, 1).squeeze()
+        # preds = preds.reshape(-1, preds.shape[-2], preds.shape[-1])
+        # preds = preds[:, :, -1:]
+        # preds = preds.reshape(-1, 1).squeeze()
 
         # result save
         folder_path = f'./results/{datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}/'
