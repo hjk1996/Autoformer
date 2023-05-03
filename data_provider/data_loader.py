@@ -310,6 +310,7 @@ class CustomPM(Dataset):
 
     def __read_data__(self):
         df_paths = glob(os.path.join(self.data_path, "*.csv"))
+        df_paths = sorted(df_paths)
         dfs = [pd.read_csv(path) for path in df_paths]
         self.total_len = 0
 
