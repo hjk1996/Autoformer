@@ -321,7 +321,7 @@ class CustomPM(Dataset):
             df = df[["date"] + cols + [self.target]]
             self.total_len += len(df)
 
-            num_train = int(len(df) * 0.7)
+            num_train = int(len(df) * 0.8)
 
             border1s = [0, num_train - self.seq_len]
             border2s = [num_train, len(df)]
