@@ -300,7 +300,7 @@ class Exp_Main(Exp_Basic):
                         outputs = self.model(batch_x, batch_x_mark, batch_dec_inp, batch_y_mark)[0]
                     else:
                         outputs = self.model(batch_x, batch_x_mark, batch_dec_inp, batch_y_mark)
-                pred = outputs.reshape(1, -1).squeeze().detach().cpu().numpy().tolist()
+                pred = outputs[:, :, -1:].squeeze().detach().numpy().tolist()
                 preds.extend(pred)
 
         preds = np.array(preds)
